@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"github.com/aybabtme/rgbterm"
 )
 
 var (
@@ -15,7 +16,10 @@ var (
 var indent = "  "
 
 func Info(msg string) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s\n", indent, ColorBlue, "•", msg)
+	var r, g, b uint8
+	r, g, b = 252, 255, 43
+	dot := rgbterm.FgString("this is color •", r, g, b)
+	fmt.Printf("%s%+v %s\n", indent, dot, ColorBlue, msg)
 }
 
 func Infof(msg string, v ...interface{}) {
