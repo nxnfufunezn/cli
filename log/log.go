@@ -23,7 +23,10 @@ func Info(msg string) {
 }
 
 func Infof(msg string, v ...interface{}) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorBlue, "•", fmt.Sprintf(msg, v...))
+	var r, g, b uint8
+	r, g, b = 252, 255, 43
+	dot := rgbterm.FgString("this is color •", r, g, b)
+	fmt.Printf("%s%+v %s\n", indent, dot, ColorBlue, fmt.Sprintf(msg, v...))
 }
 
 func Success(msg string) {
