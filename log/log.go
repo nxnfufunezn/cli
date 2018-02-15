@@ -2,32 +2,34 @@ package log
 
 import (
 	"fmt"
+
+	"github.com/fatih/color"
 )
 
 var (
-	ColorRed    = 31
-	ColorGreen  = 32
-	ColorYellow = 33
-	ColorBlue   = 34
-	ColorGray   = 37
+	ColorRed    = color.New(color.FgRed)
+	ColorGreen  = color.New(color.FgGreen)
+	ColorYellow = color.New(color.FgYellow)
+	ColorBlue   = color.New(color.FgBlue)
+	ColorGray   = color.New(color.FgHiBlack)
 )
 
 var indent = "  "
 
 func Info(msg string) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s\n", indent, ColorBlue, "•", msg)
+	fmt.Fprintf(color.Output, "%s %s %s\n", indent, ColorBlue.Sprint("•"), msg)
 }
 
 func Infof(msg string, v ...interface{}) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorBlue, "•", fmt.Sprintf(msg, v...))
+	fmt.Fprintf(color.Output, "%s %s %s", indent, ColorBlue.Sprint("•"), fmt.Sprintf(msg, v...))
 }
 
 func Success(msg string) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorGreen, "✔", msg)
+	fmt.Fprintf(color.Output, "%s %s %s", indent, ColorGreen.Sprint("✔"), msg)
 }
 
 func Successf(msg string, v ...interface{}) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorGreen, "✔", fmt.Sprintf(msg, v...))
+	fmt.Fprintf(color.Output, "%s %s %s", indent, ColorGreen.Sprint("✔"), fmt.Sprintf(msg, v...))
 }
 
 func Plain(msg string) {
@@ -39,17 +41,13 @@ func Plainf(msg string, v ...interface{}) {
 }
 
 func Warnf(msg string, v ...interface{}) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorRed, "•", fmt.Sprintf(msg, v...))
+	fmt.Fprintf(color.Output, "%s %s %s", indent, ColorRed.Sprint("•"), fmt.Sprintf(msg, v...))
 }
 
 func Error(msg string) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s\n", indent, ColorRed, "⨯", msg)
+	fmt.Fprintf(color.Output, "%s %s %s\n", indent, ColorRed.Sprint("⨯"), msg)
 }
 
 func Printf(msg string, v ...interface{}) {
-	fmt.Printf("%s\033[%dm%s\033[0m %s", indent, ColorGray, "•", fmt.Sprintf(msg, v...))
-}
-
-func WithPrefixf(prefixColor int, prefix, msg string, v ...interface{}) {
-	fmt.Printf("  \033[%dm%s\033[0m %s\n", prefixColor, prefix, fmt.Sprintf(msg, v...))
+	fmt.Fprintf(color.Output, "%s %s %s", indent, ColorGray.Sprint("•"), fmt.Sprintf(msg, v...))
 }
