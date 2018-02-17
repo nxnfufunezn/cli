@@ -11,5 +11,5 @@ build:
   goarch:
     - amd64
     - 386
-changelog:
-  sort: asc
+archive:
+  name_template: "dnote_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"

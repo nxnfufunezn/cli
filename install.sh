@@ -86,6 +86,7 @@ adjust_version() {
     echo "$PREFIX: checking GitHub for latest version"
     VERSION=$(github_last_release "$OWNER/$REPO")
   fi
+  VERSION=${VERSION#v}
 }
 adjust_format() {
   # change format (tar.gz or zip) based on ARCH
@@ -227,7 +228,7 @@ github_last_release() {
   owner_repo=$1
   giturl="https://api.github.com/repos/${owner_repo}/releases/latest"
   html=$(github_api - "$giturl")
-  version=$(echo "$html" | grep -m 1 "\"tag_name\":" | cut -f4 -d'"')
+  version=$(echo "$html" | tr ',' '\n' | grep -m 1 "\"tag_name\":" | cut -f4 -d'"')
   test -z "$version" && return 1
   echo "$version"
 }
@@ -304,7 +305,7 @@ echo "$PREFIX: found version ${VERSION} for ${OS}/${ARCH}"
 
 NAME=${BINARY}_${VERSION}_${OS}_${ARCH}
 TARBALL=${NAME}.${FORMAT}
-TARBALL_URL=${GITHUB_DOWNLOAD}/${VERSION}/${TARBALL}
+TARBALL_URL=${GITHUB_DOWNLOAD}/v${VERSION}/${TARBALL}
 CHECKSUM=cli_checksums.txt
 CHECKSUM_URL=${GITHUB_DOWNLOAD}/${VERSION}/${CHECKSUM}
 
