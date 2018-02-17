@@ -13,3 +13,5 @@ build:
     - 386
 archive:
   name_template: "dnote_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+checksum:
+  name_template: "dnote_checksums.txt"
