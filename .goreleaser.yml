@@ -1,0 +1,15 @@
+build:
+  main: main.go
+  binary: dnote
+  goos:
+    - darwin
+    - linux
+    - windows
+    - freebsd
+    - netbsd
+    - openbsd
+  goarch:
+    - amd64
+    - 386
+changelog:
+  sort: asc
