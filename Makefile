@@ -7,14 +7,18 @@ release:
 	@git push --tags
 .PHONY: release
 
-build: install-gox
-	@$(GOPATH)/bin/gox -ldflags "-X main.apiEndpoint=https://api.dnote.io" -osarch="darwin/386 darwin/amd64 linux/386 linux/amd64 openbsd/386 openbsd/amd64 window/386 windows/amd64" -output="dnote-{{.OS}}-{{.Arch}}" ./...
-.PHONY: build
+build:
+	for GOOS in darwin linux openbsd windows; do
+		for GOARCH in 386 amd64; do
+			GOOS=$1
+			GOARCH=$2
+			filename="dnote-${GOOS}-${GOARCH}"
 
-install-gox:
-	@echo "** Installing Gox..."
-	@go get github.com/mitchellh/gox
-.PHONY: install-gox
+			echo "Building $filename"
+			GOOS=$GOOS GOARCH=$GOARCH go build -o "${filename}" -ldflags "-X main.apiEndpoint=https://api.dnote.io"
+		done
+	done
+.PHONY: build
 
 clean:
 	@git clean -f
