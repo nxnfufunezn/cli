@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:97242fd82dcd5574a59c31685652a4de519934674a9fa21159604fdd5a005e7c"
+  branch = "master"
+  digest = "1:fb63dd8a6f5928309bfd6636f4affc6f467987cb44aa04e4c9fb26b57cd09df8"
   name = "github.com/dnote/actions"
   packages = ["."]
   pruneopts = ""
-  revision = "e646839669907194077733897c26ce2bb9856896"
-  version = "v0.1.0"
+  revision = "340db3ca536767e6b851ef44166e41300b58b5ef"
 
 [[projects]]
   digest = "1:e988ed0ca0d81f4d28772760c02ee95084961311291bdfefc1b04617c178b722"
