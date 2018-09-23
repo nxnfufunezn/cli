@@ -98,7 +98,7 @@ func writeNote(ctx infra.DnoteCtx, bookLabel string, content string, ts int64) e
 			return errors.Wrap(err, "creating the book")
 		}
 
-		err = core.LogActionAddBook(tx, bookLabel)
+		err = core.LogActionAddBook(tx, bookLabel, bookUUID)
 		if err != nil {
 			tx.Rollback()
 			return errors.Wrap(err, "logging action")
@@ -114,7 +114,7 @@ func writeNote(ctx infra.DnoteCtx, bookLabel string, content string, ts int64) e
 		tx.Rollback()
 		return errors.Wrap(err, "creating the note")
 	}
-	err = core.LogActionAddNote(tx, noteUUID, bookLabel, content, ts)
+	err = core.LogActionAddNote(tx, noteUUID, bookUUID, content, ts)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrap(err, "logging action")

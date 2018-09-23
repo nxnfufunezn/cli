@@ -98,7 +98,7 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 			return errors.Wrap(err, "updating the note")
 		}
 
-		err = core.LogActionEditNote(tx, noteUUID, bookLabel, newContent, ts)
+		err = core.LogActionEditNote(tx, noteUUID, newContent, ts)
 		if err != nil {
 			tx.Rollback()
 			return errors.Wrap(err, "logging an action")
