@@ -8,14 +8,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-type migration struct {
-	name string
-	sql  string
+var migrations = []migration{
+	m1,
 }
 
-var migrations = []migration{}
-
 func initSchema(db *sql.DB) (int, error) {
+	// TODO: if fresh install, init schema to len(migrations)
 	schemaVersion := 0
 
 	_, err := db.Exec("INSERT INTO system (key, value) VALUES (? ,?)", "schema", schemaVersion)
@@ -51,10 +49,10 @@ func execute(ctx infra.DnoteCtx, nextSchema int, m migration) error {
 		return errors.Wrap(err, "beginning a transaction")
 	}
 
-	_, err = tx.Exec(m.sql)
+	err = m.run(tx)
 	if err != nil {
 		tx.Rollback()
-		return errors.Wrap(err, "running sql")
+		return errors.Wrapf(err, "running migration '%s'", m.name)
 	}
 
 	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", nextSchema, "schema")
