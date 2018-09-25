@@ -258,3 +258,77 @@ func TestMigration3(t *testing.T) {
 	testutils.AssertEqual(t, *a3Data.Content, c1, "a3 data content mismatch")
 	testutils.AssertEqual(t, a3Data.Public, (*bool)(nil), "a3 data public mismatch")
 }
+
+func TestMigration4(t *testing.T) {
+	// set up
+	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+	defer testutils.TeardownEnv(ctx)
+
+	db := ctx.DB
+
+	data := testutils.MustMarshalJSON(t, actions.AddNoteDataV3{NoteUUID: "note-1-uuid", BookUUID: "book-1-uuid", Content: "note 1", Public: false})
+	a1UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a1UUID, 3, "add_note", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.RemoveNoteDataV1{NoteUUID: "note-1-uuid", BookName: "js"})
+	a2UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a2UUID, 1, "remove_note", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.RemoveNoteDataV1{NoteUUID: "note-2-uuid", BookName: "js"})
+	a3UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a3UUID, 1, "remove_note", string(data), 1537829463)
+
+	// Execute
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "beginning a transaction"))
+	}
+
+	err = m4.run(tx)
+	if err != nil {
+		tx.Rollback()
+		t.Fatal(errors.Wrap(err, "failed to run"))
+	}
+
+	tx.Commit()
+
+	// Test
+	var actionCount int
+	testutils.MustScan(t, "counting actions", db.QueryRow("SELECT count(*) FROM actions"), &actionCount)
+	testutils.AssertEqual(t, actionCount, 3, "action count mismatch")
+
+	var a1, a2, a3 actions.Action
+	testutils.MustScan(t, "getting action 1", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a1UUID),
+		&a1.Schema, &a1.Type, &a1.Data, &a1.Timestamp)
+	testutils.MustScan(t, "getting action 2", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a2UUID),
+		&a2.Schema, &a2.Type, &a2.Data, &a2.Timestamp)
+	testutils.MustScan(t, "getting action 3", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a3UUID),
+		&a3.Schema, &a3.Type, &a3.Data, &a3.Timestamp)
+
+	var a1Data actions.AddNoteDataV3
+	var a2Data, a3Data actions.RemoveNoteDataV2
+	testutils.MustUnmarshalJSON(t, a1.Data, &a1Data)
+	testutils.MustUnmarshalJSON(t, a2.Data, &a2Data)
+	testutils.MustUnmarshalJSON(t, a3.Data, &a3Data)
+
+	testutils.AssertEqual(t, a1.Schema, 3, "a1 schema mismatch")
+	testutils.AssertEqual(t, a1.Type, "add_note", "a1 type mismatch")
+	testutils.AssertEqual(t, a1.Timestamp, int64(1537829463), "a1 timestamp mismatch")
+	testutils.AssertEqual(t, a1Data.NoteUUID, "note-1-uuid", "a1 data note_uuid mismatch")
+	testutils.AssertEqual(t, a1Data.BookUUID, "book-1-uuid", "a1 data book_uuid mismatch")
+	testutils.AssertEqual(t, a1Data.Content, "note 1", "a1 data content mismatch")
+	testutils.AssertEqual(t, a1Data.Public, false, "a1 data public mismatch")
+
+	testutils.AssertEqual(t, a2.Schema, 2, "a2 schema mismatch")
+	testutils.AssertEqual(t, a2.Type, "remove_note", "a2 type mismatch")
+	testutils.AssertEqual(t, a2.Timestamp, int64(1537829463), "a2 timestamp mismatch")
+	testutils.AssertEqual(t, a2Data.NoteUUID, "note-1-uuid", "a2 data note_uuid mismatch")
+
+	testutils.AssertEqual(t, a3.Schema, 2, "a3 schema mismatch")
+	testutils.AssertEqual(t, a3.Type, "remove_note", "a3 type mismatch")
+	testutils.AssertEqual(t, a3.Timestamp, int64(1537829463), "a3 timestamp mismatch")
+	testutils.AssertEqual(t, a3Data.NoteUUID, "note-2-uuid", "a3 data note_uuid mismatch")
+}
