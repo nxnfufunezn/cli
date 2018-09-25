@@ -209,3 +209,52 @@ var m4 = migration{
 		return nil
 	},
 }
+
+var m5 = migration{
+	name: "upgrade-add-book-from-v1-to-v2",
+	run: func(tx *sql.Tx) error {
+		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "add_book", 1)
+		if err != nil {
+			return errors.Wrap(err, "querying rows")
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var uuid, dat string
+
+			err = rows.Scan(&uuid, &dat)
+			if err != nil {
+				return errors.Wrap(err, "scanning a row")
+			}
+
+			var oldData actions.AddBookDataV1
+			err = json.Unmarshal([]byte(dat), &oldData)
+			if err != nil {
+				return errors.Wrap(err, "unmarshalling existing data")
+			}
+
+			var bookUUID string
+			err = tx.QueryRow("SELECT uuid FROM books WHERE label = ?", oldData.BookName).Scan(&bookUUID)
+			if err != nil {
+				return errors.Wrap(err, "scanning book uuid")
+			}
+
+			newData := actions.AddBookDataV2{
+				BookName: oldData.BookName,
+				BookUUID: bookUUID,
+			}
+
+			b, err := json.Marshal(newData)
+			if err != nil {
+				return errors.Wrap(err, "marshalling new data")
+			}
+
+			_, err = tx.Exec("UPDATE actions SET data = ?, schema = ? WHERE uuid = ?", string(b), 2, uuid)
+			if err != nil {
+				return errors.Wrap(err, "updating a row")
+			}
+		}
+
+		return nil
+	},
+}
