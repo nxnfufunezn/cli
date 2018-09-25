@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-var migrations = []migration{
+// Sequence is a list of migrations to be run
+var Sequence = []migration{
 	m1,
 	m2,
 	m3,
@@ -18,7 +19,7 @@ var migrations = []migration{
 }
 
 func initSchema(ctx infra.DnoteCtx) (int, error) {
-	schemaVersion := 0
+	schemaVersion := 1
 
 	db := ctx.DB
 	_, err := db.Exec("INSERT INTO system (key, value) VALUES (? ,?)", "schema", schemaVersion)
@@ -80,7 +81,7 @@ func execute(ctx infra.DnoteCtx, m migration) error {
 }
 
 // Run performs unrun migrations
-func Run(ctx infra.DnoteCtx) error {
+func Run(ctx infra.DnoteCtx, migrations []migration) error {
 	schema, err := getSchema(ctx)
 	if err != nil {
 		return errors.Wrap(err, "getting the current schema")
