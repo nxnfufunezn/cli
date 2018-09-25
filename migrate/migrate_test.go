@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/dnote/actions"
@@ -8,6 +9,43 @@ import (
 	"github.com/dnote/cli/utils"
 	"github.com/pkg/errors"
 )
+
+func TestExecute_bump_schema(t *testing.T) {
+	// set up
+	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+	defer testutils.TeardownEnv(ctx)
+
+	db := ctx.DB
+	testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", "schema", 8)
+
+	m1 := migration{
+		name: "noop",
+		run: func(tx *sql.Tx) error {
+			return nil
+		},
+	}
+	m2 := migration{
+		name: "noop",
+		run: func(tx *sql.Tx) error {
+			return nil
+		},
+	}
+
+	// execute
+	err := execute(ctx, m1)
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "failed to execute"))
+	}
+	err = execute(ctx, m2)
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "failed to execute"))
+	}
+
+	// test
+	var schema int
+	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
+	testutils.AssertEqual(t, schema, 10, "schema was not incremented properly")
+}
 
 func TestMigration1(t *testing.T) {
 	// set up

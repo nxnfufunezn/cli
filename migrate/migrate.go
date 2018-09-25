@@ -10,12 +10,17 @@ import (
 
 var migrations = []migration{
 	m1,
+	m2,
+	m3,
+	m4,
+	m5,
+	m6,
 }
 
-func initSchema(db *sql.DB) (int, error) {
-	// TODO: if fresh install, init schema to len(migrations)
+func initSchema(ctx infra.DnoteCtx) (int, error) {
 	schemaVersion := 0
 
+	db := ctx.DB
 	_, err := db.Exec("INSERT INTO system (key, value) VALUES (? ,?)", "schema", schemaVersion)
 	if err != nil {
 		return schemaVersion, errors.Wrap(err, "inserting schema")
@@ -24,12 +29,13 @@ func initSchema(db *sql.DB) (int, error) {
 	return schemaVersion, nil
 }
 
-func getSchema(db *sql.DB) (int, error) {
+func getSchema(ctx infra.DnoteCtx) (int, error) {
 	var ret int
 
+	db := ctx.DB
 	err := db.QueryRow("SELECT value FROM system where key = ?", "schema").Scan(&ret)
 	if err == sql.ErrNoRows {
-		ret, err = initSchema(db)
+		ret, err = initSchema(ctx)
 
 		if err != nil {
 			return ret, errors.Wrap(err, "initializing schema")
@@ -41,7 +47,7 @@ func getSchema(db *sql.DB) (int, error) {
 	return ret, nil
 }
 
-func execute(ctx infra.DnoteCtx, nextSchema int, m migration) error {
+func execute(ctx infra.DnoteCtx, m migration) error {
 	log.Debug("running migration %s\n", m.name)
 
 	tx, err := ctx.DB.Begin()
@@ -55,7 +61,14 @@ func execute(ctx infra.DnoteCtx, nextSchema int, m migration) error {
 		return errors.Wrapf(err, "running migration '%s'", m.name)
 	}
 
-	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", nextSchema, "schema")
+	var currentSchema int
+	err = tx.QueryRow("SELECT value FROM system WHERE key = ?", "schema").Scan(&currentSchema)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "getting current schema")
+	}
+
+	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", currentSchema+1, "schema")
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrap(err, "incrementing schema")
@@ -68,9 +81,7 @@ func execute(ctx infra.DnoteCtx, nextSchema int, m migration) error {
 
 // Run performs unrun migrations
 func Run(ctx infra.DnoteCtx) error {
-	db := ctx.DB
-
-	schema, err := getSchema(db)
+	schema, err := getSchema(ctx)
 	if err != nil {
 		return errors.Wrap(err, "getting the current schema")
 	}
@@ -83,9 +94,8 @@ func Run(ctx infra.DnoteCtx) error {
 
 	toRun := migrations[schema:]
 
-	for idx, m := range toRun {
-		nextSchema := schema + idx + 1
-		if err := execute(ctx, nextSchema, m); err != nil {
+	for _, m := range toRun {
+		if err := execute(ctx, m); err != nil {
 			return errors.Wrapf(err, "running migration %s", m.name)
 		}
 	}
