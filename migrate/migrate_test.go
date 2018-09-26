@@ -47,6 +47,7 @@ func TestExecute_bump_schema(t *testing.T) {
 	testutils.AssertEqual(t, schema, 10, "schema was not incremented properly")
 }
 
+// TODO: test local mode and remote mode using table driven test
 func TestRun_nonfresh(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
@@ -89,7 +90,7 @@ func TestRun_nonfresh(t *testing.T) {
 	}
 
 	// execute
-	err := Run(ctx, sequence)
+	err := Run(ctx, sequence, LocalMode)
 	if err != nil {
 		t.Fatal(errors.Wrap(err, "failed to run"))
 	}
@@ -142,7 +143,7 @@ func TestRun_fresh(t *testing.T) {
 	}
 
 	// execute
-	err := Run(ctx, sequence)
+	err := Run(ctx, sequence, LocalMode)
 	if err != nil {
 		t.Fatal(errors.Wrap(err, "failed to run"))
 	}
@@ -198,7 +199,7 @@ func TestRun_up_to_date(t *testing.T) {
 	}
 
 	// execute
-	err := Run(ctx, sequence)
+	err := Run(ctx, sequence, LocalMode)
 	if err != nil {
 		t.Fatal(errors.Wrap(err, "failed to run"))
 	}
@@ -241,7 +242,7 @@ func TestMigration1(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m1.run(tx)
+	err = lm1.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -325,7 +326,7 @@ func TestMigration2(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m2.run(tx)
+	err = lm2.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -411,7 +412,7 @@ func TestMigration3(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m3.run(tx)
+	err = lm3.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -491,7 +492,7 @@ func TestMigration4(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m4.run(tx)
+	err = lm4.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -570,7 +571,7 @@ func TestMigration5(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m5.run(tx)
+	err = lm5.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -651,7 +652,7 @@ func TestMigration6(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = m6.run(tx)
+	err = lm6.run(tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))

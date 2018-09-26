@@ -41,7 +41,7 @@ func Prepare(ctx infra.DnoteCtx) error {
 	if err := migrate.Legacy(ctx); err != nil {
 		return errors.Wrap(err, "running legacy migration")
 	}
-	if err := migrate.Run(ctx, migrate.Sequence); err != nil {
+	if err := migrate.Run(ctx, migrate.LocalSequence, migrate.LocalMode); err != nil {
 		return errors.Wrap(err, "running migration")
 	}
 

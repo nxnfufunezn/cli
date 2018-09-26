@@ -13,7 +13,7 @@ type migration struct {
 	run  func(tx *sql.Tx) error
 }
 
-var m1 = migration{
+var lm1 = migration{
 	name: "upgrade-edit-note-from-v1-to-v3",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "edit_note", 1)
@@ -61,7 +61,7 @@ var m1 = migration{
 	},
 }
 
-var m2 = migration{
+var lm2 = migration{
 	name: "upgrade-edit-note-from-v2-to-v3",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "edit_note", 2)
@@ -117,7 +117,7 @@ var m2 = migration{
 	},
 }
 
-var m3 = migration{
+var lm3 = migration{
 	name: "upgrade-add-note-from-v2-to-v3",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "add_note", 2)
@@ -168,7 +168,7 @@ var m3 = migration{
 	},
 }
 
-var m4 = migration{
+var lm4 = migration{
 	name: "upgrade-remove-note-from-v1-to-v2",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "remove_note", 1)
@@ -210,7 +210,7 @@ var m4 = migration{
 	},
 }
 
-var m5 = migration{
+var lm5 = migration{
 	name: "upgrade-add-book-from-v1-to-v2",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "add_book", 1)
@@ -259,7 +259,7 @@ var m5 = migration{
 	},
 }
 
-var m6 = migration{
+var lm6 = migration{
 	name: "upgrade-remove-book-from-v1-to-v2",
 	run: func(tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "remove_book", 1)
