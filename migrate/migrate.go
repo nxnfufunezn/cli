@@ -25,12 +25,15 @@ var LocalSequence = []migration{
 	lm6,
 }
 
-func initSchema(ctx infra.DnoteCtx) (int, error) {
+// RemoteSequence  is a list of remote migrations to be run
+var RemoteSequence = []migration{}
+
+func initSchema(ctx infra.DnoteCtx, schemaKey string) (int, error) {
 	// schemaVersion is the index of the latest run migration in the sequence
 	schemaVersion := 0
 
 	db := ctx.DB
-	_, err := db.Exec("INSERT INTO system (key, value) VALUES (? ,?)", "schema", schemaVersion)
+	_, err := db.Exec("INSERT INTO system (key, value) VALUES (?, ?)", schemaKey, schemaVersion)
 	if err != nil {
 		return schemaVersion, errors.Wrap(err, "inserting schema")
 	}
@@ -40,28 +43,23 @@ func initSchema(ctx infra.DnoteCtx) (int, error) {
 
 func getSchemaKey(mode int) (string, error) {
 	if mode == LocalMode {
-		return "schema", nil
+		return infra.SystemSchema, nil
 	}
 
 	if mode == RemoteMode {
-		return "remote_schema", nil
+		return infra.SystemRemoteSchema, nil
 	}
 
 	return "", errors.Errorf("unsupported migration type '%d'", mode)
 }
 
-func getSchema(ctx infra.DnoteCtx, mode int) (int, error) {
+func getSchema(ctx infra.DnoteCtx, schemaKey string) (int, error) {
 	var ret int
 
-	schemaKey, err := getSchemaKey(mode)
-	if err != nil {
-		return ret, errors.Wrap(err, "getting schema key")
-	}
-
 	db := ctx.DB
-	err = db.QueryRow("SELECT value FROM system where key = ?", schemaKey).Scan(&ret)
+	err := db.QueryRow("SELECT value FROM system where key = ?", schemaKey).Scan(&ret)
 	if err == sql.ErrNoRows {
-		ret, err = initSchema(ctx)
+		ret, err = initSchema(ctx, schemaKey)
 
 		if err != nil {
 			return ret, errors.Wrap(err, "initializing schema")
@@ -73,7 +71,7 @@ func getSchema(ctx infra.DnoteCtx, mode int) (int, error) {
 	return ret, nil
 }
 
-func execute(ctx infra.DnoteCtx, m migration) error {
+func execute(ctx infra.DnoteCtx, m migration, schemaKey string) error {
 	log.Debug("running migration %s\n", m.name)
 
 	tx, err := ctx.DB.Begin()
@@ -88,13 +86,13 @@ func execute(ctx infra.DnoteCtx, m migration) error {
 	}
 
 	var currentSchema int
-	err = tx.QueryRow("SELECT value FROM system WHERE key = ?", "schema").Scan(&currentSchema)
+	err = tx.QueryRow("SELECT value FROM system WHERE key = ?", schemaKey).Scan(&currentSchema)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrap(err, "getting current schema")
 	}
 
-	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", currentSchema+1, "schema")
+	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", currentSchema+1, schemaKey)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrap(err, "incrementing schema")
@@ -107,7 +105,12 @@ func execute(ctx infra.DnoteCtx, m migration) error {
 
 // Run performs unrun migrations
 func Run(ctx infra.DnoteCtx, migrations []migration, mode int) error {
-	schema, err := getSchema(ctx, mode)
+	schemaKey, err := getSchemaKey(mode)
+	if err != nil {
+		return errors.Wrap(err, "getting schema key")
+	}
+
+	schema, err := getSchema(ctx, schemaKey)
 	if err != nil {
 		return errors.Wrap(err, "getting the current schema")
 	}
@@ -117,7 +120,7 @@ func Run(ctx infra.DnoteCtx, migrations []migration, mode int) error {
 	toRun := migrations[schema:]
 
 	for _, m := range toRun {
-		if err := execute(ctx, m); err != nil {
+		if err := execute(ctx, m, schemaKey); err != nil {
 			return errors.Wrapf(err, "running migration %s", m.name)
 		}
 	}

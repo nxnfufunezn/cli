@@ -2,216 +2,287 @@ package migrate
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/dnote/actions"
+	"github.com/dnote/cli/infra"
 	"github.com/dnote/cli/testutils"
 	"github.com/dnote/cli/utils"
 	"github.com/pkg/errors"
 )
 
 func TestExecute_bump_schema(t *testing.T) {
-	// set up
-	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
-	defer testutils.TeardownEnv(ctx)
-
-	db := ctx.DB
-	testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", "schema", 8)
-
-	m1 := migration{
-		name: "noop",
-		run: func(tx *sql.Tx) error {
-			return nil
+	testCases := []struct {
+		schemaKey string
+	}{
+		{
+			schemaKey: infra.SystemSchema,
 		},
-	}
-	m2 := migration{
-		name: "noop",
-		run: func(tx *sql.Tx) error {
-			return nil
+		{
+			schemaKey: infra.SystemRemoteSchema,
 		},
 	}
 
-	// execute
-	err := execute(ctx, m1)
-	if err != nil {
-		t.Fatal(errors.Wrap(err, "failed to execute"))
-	}
-	err = execute(ctx, m2)
-	if err != nil {
-		t.Fatal(errors.Wrap(err, "failed to execute"))
-	}
+	for _, tc := range testCases {
+		func() {
+			// set up
+			ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+			defer testutils.TeardownEnv(ctx)
 
-	// test
-	var schema int
-	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
-	testutils.AssertEqual(t, schema, 10, "schema was not incremented properly")
+			db := ctx.DB
+			testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", tc.schemaKey, 8)
+
+			m1 := migration{
+				name: "noop",
+				run: func(tx *sql.Tx) error {
+					return nil
+				},
+			}
+			m2 := migration{
+				name: "noop",
+				run: func(tx *sql.Tx) error {
+					return nil
+				},
+			}
+
+			// execute
+			err := execute(ctx, m1, tc.schemaKey)
+			if err != nil {
+				t.Fatal(errors.Wrap(err, "failed to execute"))
+			}
+			err = execute(ctx, m2, tc.schemaKey)
+			if err != nil {
+				t.Fatal(errors.Wrap(err, "failed to execute"))
+			}
+
+			// test
+			var schema int
+			testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", tc.schemaKey), &schema)
+			testutils.AssertEqual(t, schema, 10, "schema was not incremented properly")
+		}()
+	}
 }
 
-// TODO: test local mode and remote mode using table driven test
 func TestRun_nonfresh(t *testing.T) {
-	// set up
-	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
-	defer testutils.TeardownEnv(ctx)
-
-	db := ctx.DB
-	testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", "schema", 2)
-	testutils.MustExec(t, "creating a temporary table for testing", db,
-		"CREATE TABLE migrate_run_test ( name string )")
-
-	sequence := []migration{
-		migration{
-			name: "v1",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
-				return nil
-			},
+	testCases := []struct {
+		mode      int
+		schemaKey string
+	}{
+		{
+			mode:      LocalMode,
+			schemaKey: infra.SystemSchema,
 		},
-		migration{
-			name: "v2",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
-				return nil
-			},
-		},
-		migration{
-			name: "v3",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
-				return nil
-			},
-		},
-		migration{
-			name: "v4",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v4 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v4")
-				return nil
-			},
+		{
+			mode:      RemoteMode,
+			schemaKey: infra.SystemRemoteSchema,
 		},
 	}
 
-	// execute
-	err := Run(ctx, sequence, LocalMode)
-	if err != nil {
-		t.Fatal(errors.Wrap(err, "failed to run"))
+	for _, tc := range testCases {
+		func() {
+			// set up
+			ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+			defer testutils.TeardownEnv(ctx)
+
+			db := ctx.DB
+			testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", tc.schemaKey, 2)
+			testutils.MustExec(t, "creating a temporary table for testing", db,
+				"CREATE TABLE migrate_run_test ( name string )")
+
+			sequence := []migration{
+				migration{
+					name: "v1",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
+						return nil
+					},
+				},
+				migration{
+					name: "v2",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
+						return nil
+					},
+				},
+				migration{
+					name: "v3",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
+						return nil
+					},
+				},
+				migration{
+					name: "v4",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v4 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v4")
+						return nil
+					},
+				},
+			}
+
+			// execute
+			err := Run(ctx, sequence, tc.mode)
+			if err != nil {
+				t.Fatal(errors.Wrap(err, "failed to run"))
+			}
+
+			// test
+			var schema int
+			testutils.MustScan(t, fmt.Sprintf("getting schema for %s", tc.schemaKey), db.QueryRow("SELECT value FROM system WHERE key = ?", tc.schemaKey), &schema)
+			testutils.AssertEqual(t, schema, 4, fmt.Sprintf("schema was not updated for %s", tc.schemaKey))
+
+			var testRunCount int
+			testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
+			testutils.AssertEqual(t, testRunCount, 2, "test run count mismatch")
+
+			var testRun1, testRun2 string
+			testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun1)
+			testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v4"), &testRun2)
+		}()
 	}
 
-	// test
-	var schema int
-	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
-	testutils.AssertEqual(t, schema, 4, "schema was not updated")
-
-	var testRunCount int
-	testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
-	testutils.AssertEqual(t, testRunCount, 2, "test run count mismatch")
-
-	var testRun1, testRun2 string
-	testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun1)
-	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v4"), &testRun2)
 }
 
 func TestRun_fresh(t *testing.T) {
-	// set up
-	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
-	defer testutils.TeardownEnv(ctx)
-
-	db := ctx.DB
-	testutils.MustExec(t, "creating a temporary table for testing", db,
-		"CREATE TABLE migrate_run_test ( name string )")
-
-	sequence := []migration{
-		migration{
-			name: "v1",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
-				return nil
-			},
+	testCases := []struct {
+		mode      int
+		schemaKey string
+	}{
+		{
+			mode:      LocalMode,
+			schemaKey: infra.SystemSchema,
 		},
-		migration{
-			name: "v2",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
-				return nil
-			},
-		},
-		migration{
-			name: "v3",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
-				return nil
-			},
+		{
+			mode:      RemoteMode,
+			schemaKey: infra.SystemRemoteSchema,
 		},
 	}
 
-	// execute
-	err := Run(ctx, sequence, LocalMode)
-	if err != nil {
-		t.Fatal(errors.Wrap(err, "failed to run"))
+	for _, tc := range testCases {
+		func() {
+			// set up
+			ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+			defer testutils.TeardownEnv(ctx)
+
+			db := ctx.DB
+			testutils.MustExec(t, "creating a temporary table for testing", db,
+				"CREATE TABLE migrate_run_test ( name string )")
+
+			sequence := []migration{
+				migration{
+					name: "v1",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
+						return nil
+					},
+				},
+				migration{
+					name: "v2",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
+						return nil
+					},
+				},
+				migration{
+					name: "v3",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
+						return nil
+					},
+				},
+			}
+
+			// execute
+			err := Run(ctx, sequence, tc.mode)
+			if err != nil {
+				t.Fatal(errors.Wrap(err, "failed to run"))
+			}
+
+			// test
+			var schema int
+			testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", tc.schemaKey), &schema)
+			testutils.AssertEqual(t, schema, 3, "schema was not updated")
+
+			var testRunCount int
+			testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
+			testutils.AssertEqual(t, testRunCount, 3, "test run count mismatch")
+
+			var testRun1, testRun2, testRun3 string
+			testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v1"), &testRun1)
+			testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v2"), &testRun2)
+			testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun3)
+		}()
 	}
-
-	// test
-	var schema int
-	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
-	testutils.AssertEqual(t, schema, 3, "schema was not updated")
-
-	var testRunCount int
-	testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
-	testutils.AssertEqual(t, testRunCount, 3, "test run count mismatch")
-
-	var testRun1, testRun2, testRun3 string
-	testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v1"), &testRun1)
-	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v2"), &testRun2)
-	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun3)
 }
 
 func TestRun_up_to_date(t *testing.T) {
-	// set up
-	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
-	defer testutils.TeardownEnv(ctx)
-
-	db := ctx.DB
-	testutils.MustExec(t, "creating a temporary table for testing", db,
-		"CREATE TABLE migrate_run_test ( name string )")
-
-	testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", "schema", 3)
-
-	sequence := []migration{
-		migration{
-			name: "v1",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
-				return nil
-			},
+	testCases := []struct {
+		mode      int
+		schemaKey string
+	}{
+		{
+			mode:      LocalMode,
+			schemaKey: infra.SystemSchema,
 		},
-		migration{
-			name: "v2",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
-				return nil
-			},
-		},
-		migration{
-			name: "v3",
-			run: func(tx *sql.Tx) error {
-				testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
-				return nil
-			},
+		{
+			mode:      RemoteMode,
+			schemaKey: infra.SystemRemoteSchema,
 		},
 	}
 
-	// execute
-	err := Run(ctx, sequence, LocalMode)
-	if err != nil {
-		t.Fatal(errors.Wrap(err, "failed to run"))
+	for _, tc := range testCases {
+		func() {
+			// set up
+			ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+			defer testutils.TeardownEnv(ctx)
+
+			db := ctx.DB
+			testutils.MustExec(t, "creating a temporary table for testing", db,
+				"CREATE TABLE migrate_run_test ( name string )")
+
+			testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", tc.schemaKey, 3)
+
+			sequence := []migration{
+				migration{
+					name: "v1",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
+						return nil
+					},
+				},
+				migration{
+					name: "v2",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
+						return nil
+					},
+				},
+				migration{
+					name: "v3",
+					run: func(tx *sql.Tx) error {
+						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
+						return nil
+					},
+				},
+			}
+
+			// execute
+			err := Run(ctx, sequence, tc.mode)
+			if err != nil {
+				t.Fatal(errors.Wrap(err, "failed to run"))
+			}
+
+			// test
+			var schema int
+			testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", tc.schemaKey), &schema)
+			testutils.AssertEqual(t, schema, 3, "schema was not updated")
+
+			var testRunCount int
+			testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
+			testutils.AssertEqual(t, testRunCount, 0, "test run count mismatch")
+		}()
 	}
-
-	// test
-	var schema int
-	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
-	testutils.AssertEqual(t, schema, 3, "schema was not updated")
-
-	var testRunCount int
-	testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
-	testutils.AssertEqual(t, testRunCount, 0, "test run count mismatch")
 }
 
 func TestMigration1(t *testing.T) {

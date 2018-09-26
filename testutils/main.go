@@ -136,7 +136,7 @@ func checkEqual(a interface{}, b interface{}, message string) (bool, string) {
 func AssertEqual(t *testing.T, a interface{}, b interface{}, message string) {
 	ok, m := checkEqual(a, b, message)
 	if !ok {
-		t.Error(m)
+		t.Errorf("%s: %s", t.Name(), m)
 	}
 }
 
@@ -212,7 +212,7 @@ func MustExec(t *testing.T, message string, db *sql.DB, query string, args ...in
 func MustScan(t *testing.T, message string, row *sql.Row, args ...interface{}) {
 	err := row.Scan(args...)
 	if err != nil {
-		t.Fatal(errors.Wrap(errors.Wrap(err, "scanning a row"), message))
+		t.Fatal(errors.Wrapf(errors.Wrap(err, "scanning a row"), "%s failed. %s", t.Name(), message))
 	}
 }
 
