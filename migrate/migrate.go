@@ -25,8 +25,10 @@ var LocalSequence = []migration{
 	lm6,
 }
 
-// RemoteSequence  is a list of remote migrations to be run
-var RemoteSequence = []migration{}
+// RemoteSequence is a list of remote migrations to be run
+var RemoteSequence = []migration{
+	rm1,
+}
 
 func initSchema(ctx infra.DnoteCtx, schemaKey string) (int, error) {
 	// schemaVersion is the index of the latest run migration in the sequence
@@ -115,7 +117,7 @@ func Run(ctx infra.DnoteCtx, migrations []migration, mode int) error {
 		return errors.Wrap(err, "getting the current schema")
 	}
 
-	log.Debug("current schema: %s %d\n", schemaKey, schema)
+	log.Debug("current schema: %s %d of %d\n", schemaKey, schema, len(migrations))
 
 	toRun := migrations[schema:]
 

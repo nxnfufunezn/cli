@@ -306,3 +306,10 @@ var lm6 = migration{
 		return nil
 	},
 }
+
+var rm1 = migration{
+	name: "sync-book-uuids-from-server",
+	run: func(tx *sql.Tx) error {
+		return nil
+	},
+}

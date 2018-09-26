@@ -14,6 +14,7 @@ import (
 	"github.com/dnote/cli/core"
 	"github.com/dnote/cli/infra"
 	"github.com/dnote/cli/log"
+	"github.com/dnote/cli/migrate"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,10 @@ type syncPayload struct {
 func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 	return func(cmd *cobra.Command, args []string) error {
 		db := ctx.DB
+
+		if err := migrate.Run(ctx, migrate.RemoteSequence, migrate.RemoteMode); err != nil {
+			return errors.Wrap(err, "running remote migrations")
+		}
 
 		config, err := core.ReadConfig(ctx)
 		if err != nil {
