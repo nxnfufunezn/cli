@@ -19,7 +19,7 @@ var Sequence = []migration{
 }
 
 func initSchema(ctx infra.DnoteCtx) (int, error) {
-	schemaVersion := 1
+	schemaVersion := 0
 
 	db := ctx.DB
 	_, err := db.Exec("INSERT INTO system (key, value) VALUES (? ,?)", "schema", schemaVersion)
@@ -88,10 +88,6 @@ func Run(ctx infra.DnoteCtx, migrations []migration) error {
 	}
 
 	log.Debug("current schema %d\n", schema)
-
-	if schema == len(migrations) {
-		return nil
-	}
 
 	toRun := migrations[schema:]
 

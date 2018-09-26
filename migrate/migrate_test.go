@@ -47,7 +47,7 @@ func TestExecute_bump_schema(t *testing.T) {
 	testutils.AssertEqual(t, schema, 10, "schema was not incremented properly")
 }
 
-func TestRun(t *testing.T) {
+func TestRun_nonfresh(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -106,6 +106,60 @@ func TestRun(t *testing.T) {
 	var testRun1, testRun2 string
 	testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun1)
 	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v4"), &testRun2)
+}
+
+func TestRun_fresh(t *testing.T) {
+	// set up
+	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+	defer testutils.TeardownEnv(ctx)
+
+	db := ctx.DB
+	testutils.MustExec(t, "creating a temporary table for testing", db,
+		"CREATE TABLE migrate_run_test ( name string )")
+
+	sequence := []migration{
+		migration{
+			name: "v1",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
+				return nil
+			},
+		},
+		migration{
+			name: "v2",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
+				return nil
+			},
+		},
+		migration{
+			name: "v3",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
+				return nil
+			},
+		},
+	}
+
+	// execute
+	err := Run(ctx, sequence)
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "failed to run"))
+	}
+
+	// test
+	var schema int
+	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
+	testutils.AssertEqual(t, schema, 3, "schema was not updated")
+
+	var testRunCount int
+	testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
+	testutils.AssertEqual(t, testRunCount, 3, "test run count mismatch")
+
+	var testRun1, testRun2, testRun3 string
+	testutils.MustScan(t, "finding test run 1", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v1"), &testRun1)
+	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v2"), &testRun2)
+	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun3)
 }
 
 func TestMigration1(t *testing.T) {
