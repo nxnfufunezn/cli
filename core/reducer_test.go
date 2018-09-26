@@ -26,6 +26,7 @@ func TestReduceAddNote(t *testing.T) {
 	})
 	action := actions.Action{
 		Type:      actions.ActionAddNote,
+		Schema:    3,
 		Data:      b,
 		Timestamp: 1517629805,
 	}
@@ -74,6 +75,7 @@ func TestReduceRemoveNote(t *testing.T) {
 	})
 	action := actions.Action{
 		Type:      actions.ActionRemoveNote,
+		Schema:    2,
 		Data:      b,
 		Timestamp: 1517629805,
 	}
@@ -168,7 +170,7 @@ func TestReduceEditNote(t *testing.T) {
 			action := actions.Action{
 				Type:      actions.ActionEditNote,
 				Data:      json.RawMessage(tc.data),
-				Schema:    2,
+				Schema:    3,
 				Timestamp: 1517629805,
 			}
 
@@ -225,6 +227,7 @@ func TestReduceAddBook(t *testing.T) {
 	b, err := json.Marshal(&actions.AddBookDataV2{BookName: "new_book", BookUUID: "new-book-uuid"})
 	action := actions.Action{
 		Type:      actions.ActionAddBook,
+		Schema:    2,
 		Data:      b,
 		Timestamp: 1517629805,
 	}
@@ -259,6 +262,7 @@ func TestReduceRemoveBook(t *testing.T) {
 	b, err := json.Marshal(&actions.RemoveBookDataV2{BookUUID: "linux-book-uuid"})
 	action := actions.Action{
 		Type:      actions.ActionRemoveBook,
+		Schema:    2,
 		Data:      b,
 		Timestamp: 1517629805,
 	}

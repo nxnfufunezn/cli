@@ -62,12 +62,17 @@ func getBookUUIDWithTx(tx *sql.Tx, bookLabel string) (string, error) {
 }
 
 func handleAddNote(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error {
+	log.Debug("reducing add_note")
+	if action.Schema != 3 {
+		return errors.Errorf("data schema '%d' not supported", action.Schema)
+	}
+
 	var data actions.AddNoteDataV3
 	if err := json.Unmarshal(action.Data, &data); err != nil {
 		return errors.Wrap(err, "parsing the action data")
 	}
 
-	log.Debug("reducing add_note. action: %+v. data: %+v\n", action, data)
+	log.Debug("action: %+v. data: %+v\n", action, data)
 
 	var noteCount int
 	if err := tx.
@@ -95,12 +100,17 @@ func handleAddNote(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error 
 }
 
 func handleRemoveNote(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error {
+	log.Debug("reducing remove_note")
+	if action.Schema != 2 {
+		return errors.Errorf("data schema '%d' not supported", action.Schema)
+	}
+
 	var data actions.RemoveNoteDataV2
 	if err := json.Unmarshal(action.Data, &data); err != nil {
 		return errors.Wrap(err, "parsing the action data")
 	}
 
-	log.Debug("reducing remove_note. action: %+v. data: %+v\n", action, data)
+	log.Debug("action: %+v. data: %+v\n", action, data)
 
 	_, err := tx.Exec("DELETE FROM notes WHERE uuid = ?", data.NoteUUID)
 	if err != nil {
@@ -134,13 +144,18 @@ func buildEditNoteQuery(ctx infra.DnoteCtx, tx *sql.Tx, noteUUID string, ts int6
 }
 
 func handleEditNote(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error {
+	log.Debug("reducing edit_note")
+	if action.Schema != 3 {
+		return errors.Errorf("data schema '%d' not supported", action.Schema)
+	}
+
 	var data actions.EditNoteDataV3
 	err := json.Unmarshal(action.Data, &data)
 	if err != nil {
 		return errors.Wrap(err, "parsing the action data")
 	}
 
-	log.Debug("reducing edit_note. action: %+v. data: %+v\n", action, data)
+	log.Debug("action: %+v. data: %+v\n", action, data)
 
 	queryTmpl, queryArgs, err := buildEditNoteQuery(ctx, tx, data.NoteUUID, action.Timestamp, data)
 	if err != nil {
@@ -155,13 +170,18 @@ func handleEditNote(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error
 }
 
 func handleAddBook(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error {
+	log.Debug("reducing add_book")
+	if action.Schema != 2 {
+		return errors.Errorf("data schema '%d' not supported", action.Schema)
+	}
+
 	var data actions.AddBookDataV2
 	err := json.Unmarshal(action.Data, &data)
 	if err != nil {
 		return errors.Wrap(err, "parsing the action data")
 	}
 
-	log.Debug("reducing add_book. action: %+v. data: %+v\n", action, data)
+	log.Debug("action: %+v. data: %+v\n", action, data)
 
 	var bookCount int
 	err = tx.QueryRow("SELECT count(uuid) FROM books WHERE uuid = ?", data.BookUUID).Scan(&bookCount)
@@ -184,12 +204,17 @@ func handleAddBook(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error 
 }
 
 func handleRemoveBook(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) error {
+	log.Debug("reducing remove_book")
+	if action.Schema != 2 {
+		return errors.Errorf("data schema '%d' not supported", action.Schema)
+	}
+
 	var data actions.RemoveBookDataV2
 	if err := json.Unmarshal(action.Data, &data); err != nil {
 		return errors.Wrap(err, "parsing the action data")
 	}
 
-	log.Debug("reducing remove_book. action: %+v. data: %+v\n", action, data)
+	log.Debug("action: %+v. data: %+v\n", action, data)
 
 	var bookCount int
 	if err := tx.
