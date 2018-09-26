@@ -198,7 +198,7 @@ func handleRemoveBook(ctx infra.DnoteCtx, tx *sql.Tx, action actions.Action) err
 		return errors.Wrap(err, "counting note")
 	}
 
-	if bookCount > 0 {
+	if bookCount == 0 {
 		// If book does not exist, another client added and removed the book, making the add_book action
 		// obsolete. noop.
 		return nil

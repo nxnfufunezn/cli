@@ -18,10 +18,11 @@ func TestReduceAddNote(t *testing.T) {
 	testutils.Setup1(t, ctx)
 
 	// Execute
-	b, err := json.Marshal(&actions.AddNoteDataV1{
-		Content:  "new content",
-		BookName: "js",
+	b, err := json.Marshal(&actions.AddNoteDataV3{
 		NoteUUID: "06896551-8a06-4996-89cc-0d866308b0f6",
+		BookUUID: "js-book-uuid",
+		Content:  "new content",
+		Public:   false,
 	})
 	action := actions.Action{
 		Type:      actions.ActionAddNote,
@@ -68,8 +69,7 @@ func TestReduceRemoveNote(t *testing.T) {
 	testutils.Setup2(t, ctx)
 
 	// Execute
-	b, err := json.Marshal(&actions.RemoveNoteDataV1{
-		BookName: "js",
+	b, err := json.Marshal(&actions.RemoveNoteDataV2{
 		NoteUUID: "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f",
 	})
 	action := actions.Action{
@@ -122,7 +122,7 @@ func TestReduceEditNote(t *testing.T) {
 		expectedLinuxNoteCount int
 	}{
 		{
-			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "from_book": "js", "content": "updated content"}`,
+			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "content": "updated content"}`,
 			expectedNoteUUID:       "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f",
 			expectedNoteBookUUID:   "js-book-uuid",
 			expectedNoteContent:    "updated content",
@@ -133,7 +133,7 @@ func TestReduceEditNote(t *testing.T) {
 			expectedLinuxNoteCount: 1,
 		},
 		{
-			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "from_book": "js", "public": true}`,
+			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "public": true}`,
 			expectedNoteUUID:       "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f",
 			expectedNoteBookUUID:   "js-book-uuid",
 			expectedNoteContent:    "Date object implements mathematical comparisons",
@@ -144,7 +144,7 @@ func TestReduceEditNote(t *testing.T) {
 			expectedLinuxNoteCount: 1,
 		},
 		{
-			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "from_book": "js", "to_book": "linux", "content": "updated content"}`,
+			data:                   `{"note_uuid": "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "book_uuid": "linux-book-uuid", "content": "updated content"}`,
 			expectedNoteUUID:       "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f",
 			expectedNoteBookUUID:   "linux-book-uuid",
 			expectedNoteContent:    "updated content",
@@ -222,7 +222,7 @@ func TestReduceAddBook(t *testing.T) {
 	testutils.Setup1(t, ctx)
 
 	// Execute
-	b, err := json.Marshal(&actions.AddBookDataV1{BookName: "new_book"})
+	b, err := json.Marshal(&actions.AddBookDataV2{BookName: "new_book", BookUUID: "new-book-uuid"})
 	action := actions.Action{
 		Type:      actions.ActionAddBook,
 		Data:      b,
@@ -242,7 +242,7 @@ func TestReduceAddBook(t *testing.T) {
 	// Test
 	var bookCount, newBookNoteCount int
 	testutils.MustScan(t, "counting books", db.QueryRow("SELECT count(*) FROM books"), &bookCount)
-	testutils.MustScan(t, "counting note in the new book", db.QueryRow("SELECT count(*) FROM notes INNER JOIN books ON books.uuid = notes.book_uuid WHERE books.label = ?", "new_book"), &newBookNoteCount)
+	testutils.MustScan(t, "counting note in the new book", db.QueryRow("SELECT count(*) FROM notes INNER JOIN books ON books.uuid = notes.book_uuid WHERE books.label = ? and books.uuid = ?", "new_book", "new-book-uuid"), &newBookNoteCount)
 
 	testutils.AssertEqual(t, bookCount, 3, "number of books mismatch")
 	testutils.AssertEqual(t, newBookNoteCount, 0, "new book number of notes mismatch")
@@ -256,7 +256,7 @@ func TestReduceRemoveBook(t *testing.T) {
 	testutils.Setup2(t, ctx)
 
 	// Execute
-	b, err := json.Marshal(&actions.RemoveBookDataV1{BookName: "linux"})
+	b, err := json.Marshal(&actions.RemoveBookDataV2{BookUUID: "linux-book-uuid"})
 	action := actions.Action{
 		Type:      actions.ActionRemoveBook,
 		Data:      b,

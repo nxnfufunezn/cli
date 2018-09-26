@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// Setup1 sets up a dnote env #1
-// dnote4.json
+// Setup1 sets up a dnote env
 func Setup1(t *testing.T, ctx infra.DnoteCtx) {
 	db := ctx.DB
 
@@ -19,8 +18,7 @@ func Setup1(t *testing.T, ctx infra.DnoteCtx) {
 	MustExec(t, "setting up note 1", db, "INSERT INTO notes (uuid, book_uuid, content, added_on) VALUES (?, ?, ?, ?)", "43827b9a-c2b0-4c06-a290-97991c896653", b1UUID, "Booleans have toString()", 1515199943)
 }
 
-// Setup2 sets up a dnote env #2
-// dnote3.json
+// Setup2 sets up a dnote env
 func Setup2(t *testing.T, ctx infra.DnoteCtx) {
 	db := ctx.DB
 
@@ -35,8 +33,7 @@ func Setup2(t *testing.T, ctx infra.DnoteCtx) {
 	MustExec(t, "setting up note 3", db, "INSERT INTO notes (id, uuid, book_uuid, content, added_on) VALUES (?, ?, ?, ?, ?)", 3, "3e065d55-6d47-42f2-a6bf-f5844130b2d2", b2UUID, "wc -l to count words", 1515199961)
 }
 
-// Setup3 sets up a dnote env #1
-// dnote1.json
+// Setup3 sets up a dnote env
 func Setup3(t *testing.T, ctx infra.DnoteCtx) {
 	db := ctx.DB
 
@@ -47,8 +44,7 @@ func Setup3(t *testing.T, ctx infra.DnoteCtx) {
 	MustExec(t, "setting up note 1", db, "INSERT INTO notes (uuid, book_uuid, content, added_on) VALUES (?, ?, ?, ?)", "43827b9a-c2b0-4c06-a290-97991c896653", b1UUID, "Booleans have toString()", 1515199943)
 }
 
-// Setup4 sets up a dnote env #1
-// dnote2.json
+// Setup4 sets up a dnote env
 func Setup4(t *testing.T, ctx infra.DnoteCtx) {
 	db := ctx.DB
 
