@@ -115,7 +115,7 @@ func Run(ctx infra.DnoteCtx, migrations []migration, mode int) error {
 		return errors.Wrap(err, "getting the current schema")
 	}
 
-	log.Debug("current schema %d\n", schema)
+	log.Debug("current schema: %s %d\n", schemaKey, schema)
 
 	toRun := migrations[schema:]
 
