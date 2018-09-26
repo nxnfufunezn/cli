@@ -2,7 +2,10 @@ package migrate
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/dnote/actions"
@@ -768,5 +771,41 @@ func TestLocalMigration6(t *testing.T) {
 }
 
 func TestRemoteMigration1(t *testing.T) {
+	// set up
+	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+	defer testutils.TeardownEnv(ctx)
 
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.String() == "/v1/books" {
+			res := []struct {
+				UUID  string `json:"id"`
+				Label string `json:"label"`
+			}{
+				{
+					UUID:  "a",
+					Label: "b",
+				},
+			}
+
+			if err := json.NewEncoder(w).Encode(res); err != nil {
+				t.Fatal(errors.Wrap(err, "encoding response"))
+			}
+		}
+	}))
+	defer server.Close()
+
+	// execute
+	db := ctx.DB
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "beginning a transaction"))
+	}
+
+	err = rm1.run(ctx, tx)
+	if err != nil {
+		tx.Rollback()
+		t.Fatal(errors.Wrap(err, "failed to run"))
+	}
+
+	tx.Commit()
 }
