@@ -162,6 +162,57 @@ func TestRun_fresh(t *testing.T) {
 	testutils.MustScan(t, "finding test run 2", db.QueryRow("SELECT name FROM migrate_run_test WHERE name = ?", "v3"), &testRun3)
 }
 
+func TestRun_up_to_date(t *testing.T) {
+	// set up
+	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
+	defer testutils.TeardownEnv(ctx)
+
+	db := ctx.DB
+	testutils.MustExec(t, "creating a temporary table for testing", db,
+		"CREATE TABLE migrate_run_test ( name string )")
+
+	testutils.MustExec(t, "inserting a schema", db, "INSERT INTO system (key, value) VALUES (?, ?)", "schema", 3)
+
+	sequence := []migration{
+		migration{
+			name: "v1",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
+				return nil
+			},
+		},
+		migration{
+			name: "v2",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
+				return nil
+			},
+		},
+		migration{
+			name: "v3",
+			run: func(tx *sql.Tx) error {
+				testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
+				return nil
+			},
+		},
+	}
+
+	// execute
+	err := Run(ctx, sequence)
+	if err != nil {
+		t.Fatal(errors.Wrap(err, "failed to run"))
+	}
+
+	// test
+	var schema int
+	testutils.MustScan(t, "getting schema", db.QueryRow("SELECT value FROM system WHERE key = ?", "schema"), &schema)
+	testutils.AssertEqual(t, schema, 3, "schema was not updated")
+
+	var testRunCount int
+	testutils.MustScan(t, "counting test runs", db.QueryRow("SELECT count(*) FROM migrate_run_test"), &testRunCount)
+	testutils.AssertEqual(t, testRunCount, 0, "test run count mismatch")
+}
+
 func TestMigration1(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")

@@ -19,6 +19,7 @@ var Sequence = []migration{
 }
 
 func initSchema(ctx infra.DnoteCtx) (int, error) {
+	// schemaVersion is the index of the latest run migration in the sequence
 	schemaVersion := 0
 
 	db := ctx.DB
