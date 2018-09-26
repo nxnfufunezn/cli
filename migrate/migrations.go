@@ -3,19 +3,25 @@ package migrate
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/dnote/actions"
+	"github.com/dnote/cli/core"
+	"github.com/dnote/cli/infra"
 	"github.com/pkg/errors"
 )
 
 type migration struct {
 	name string
-	run  func(tx *sql.Tx) error
+	run  func(ctx infra.DnoteCtx, tx *sql.Tx) error
 }
 
 var lm1 = migration{
 	name: "upgrade-edit-note-from-v1-to-v3",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "edit_note", 1)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -63,7 +69,7 @@ var lm1 = migration{
 
 var lm2 = migration{
 	name: "upgrade-edit-note-from-v2-to-v3",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "edit_note", 2)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -119,7 +125,7 @@ var lm2 = migration{
 
 var lm3 = migration{
 	name: "upgrade-add-note-from-v2-to-v3",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "add_note", 2)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -170,7 +176,7 @@ var lm3 = migration{
 
 var lm4 = migration{
 	name: "upgrade-remove-note-from-v1-to-v2",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "remove_note", 1)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -212,7 +218,7 @@ var lm4 = migration{
 
 var lm5 = migration{
 	name: "upgrade-add-book-from-v1-to-v2",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "add_book", 1)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -261,7 +267,7 @@ var lm5 = migration{
 
 var lm6 = migration{
 	name: "upgrade-remove-book-from-v1-to-v2",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT uuid, data FROM actions WHERE type = ? AND schema = ?", "remove_book", 1)
 		if err != nil {
 			return errors.Wrap(err, "querying rows")
@@ -309,7 +315,69 @@ var lm6 = migration{
 
 var rm1 = migration{
 	name: "sync-book-uuids-from-server",
-	run: func(tx *sql.Tx) error {
+	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
+		endpoint := fmt.Sprintf("%s%s", ctx.APIEndpoint, "/v1/books")
+		req, err := http.NewRequest("GET", endpoint, strings.NewReader(""))
+		if err != nil {
+			return errors.Wrap(err, "constructing http request")
+		}
+
+		config, err := core.ReadConfig(ctx)
+		if err != nil {
+			return errors.Wrap(err, "reading the config")
+		}
+		if config.APIKey == "" {
+			return errors.New("login required")
+		}
+
+		req.Header.Set("Authorization", config.APIKey)
+		req.Header.Set("CLI-Version", ctx.Version)
+
+		hc := http.Client{}
+		res, err := hc.Do(req)
+		if err != nil {
+			return errors.Wrap(err, "making http request")
+		}
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrap(err, "reading the response body")
+		}
+
+		resData := []struct {
+			UUID  string `json:"uuid"`
+			Label string `json:"label"`
+		}{}
+
+		if err = json.Unmarshal(body, &resData); err != nil {
+			return errors.Wrap(err, "unmarshalling the payload")
+		}
+
+		for _, book := range resData {
+			_, err := tx.Exec("UPDATE books SET uuid = ? WHERE label = ?", book.UUID, book.Label)
+			if err != nil {
+				return errors.Wrap(err, "updating book")
+			}
+
+			rows, err := tx.Query("SELECT schema, type, data FROM actions")
+			if err != nil {
+				return errors.Wrap(err, "querying actions")
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var schema int
+				var actionType, data string
+
+				err = rows.Scan(&schema, &actionType, &data)
+				if err != nil {
+					return errors.Wrap(err, "scanning a row")
+				}
+
+				// transform
+			}
+		}
+
 		return nil
 	},
 }

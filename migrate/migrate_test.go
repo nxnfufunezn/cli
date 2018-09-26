@@ -35,13 +35,13 @@ func TestExecute_bump_schema(t *testing.T) {
 
 			m1 := migration{
 				name: "noop",
-				run: func(tx *sql.Tx) error {
+				run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 					return nil
 				},
 			}
 			m2 := migration{
 				name: "noop",
-				run: func(tx *sql.Tx) error {
+				run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 					return nil
 				},
 			}
@@ -93,28 +93,28 @@ func TestRun_nonfresh(t *testing.T) {
 			sequence := []migration{
 				migration{
 					name: "v1",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
 						return nil
 					},
 				},
 				migration{
 					name: "v2",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
 						return nil
 					},
 				},
 				migration{
 					name: "v3",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
 						return nil
 					},
 				},
 				migration{
 					name: "v4",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v4 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v4")
 						return nil
 					},
@@ -172,21 +172,21 @@ func TestRun_fresh(t *testing.T) {
 			sequence := []migration{
 				migration{
 					name: "v1",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
 						return nil
 					},
 				},
 				migration{
 					name: "v2",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
 						return nil
 					},
 				},
 				migration{
 					name: "v3",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
 						return nil
 					},
@@ -246,21 +246,21 @@ func TestRun_up_to_date(t *testing.T) {
 			sequence := []migration{
 				migration{
 					name: "v1",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v1 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v1")
 						return nil
 					},
 				},
 				migration{
 					name: "v2",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v2 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v2")
 						return nil
 					},
 				},
 				migration{
 					name: "v3",
-					run: func(tx *sql.Tx) error {
+					run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
 						testutils.MustExec(t, "marking v3 completed", db, "INSERT INTO migrate_run_test (name) VALUES (?)", "v3")
 						return nil
 					},
@@ -285,7 +285,7 @@ func TestRun_up_to_date(t *testing.T) {
 	}
 }
 
-func TestMigration1(t *testing.T) {
+func TestLocalMigration1(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -313,7 +313,7 @@ func TestMigration1(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm1.run(tx)
+	err = lm1.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -362,7 +362,7 @@ func TestMigration1(t *testing.T) {
 	testutils.AssertEqual(t, *a3Data.Public, false, "a3 data public mismatch")
 }
 
-func TestMigration2(t *testing.T) {
+func TestLocalMigration2(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -397,7 +397,7 @@ func TestMigration2(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm2.run(tx)
+	err = lm2.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -448,7 +448,7 @@ func TestMigration2(t *testing.T) {
 	testutils.AssertEqual(t, a3Data.Public, (*bool)(nil), "a3 data public mismatch")
 }
 
-func TestMigration3(t *testing.T) {
+func TestLocalMigration3(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -483,7 +483,7 @@ func TestMigration3(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm3.run(tx)
+	err = lm3.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -535,7 +535,7 @@ func TestMigration3(t *testing.T) {
 	testutils.AssertEqual(t, a3Data.Public, (*bool)(nil), "a3 data public mismatch")
 }
 
-func TestMigration4(t *testing.T) {
+func TestLocalMigration4(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -563,7 +563,7 @@ func TestMigration4(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm4.run(tx)
+	err = lm4.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -609,7 +609,7 @@ func TestMigration4(t *testing.T) {
 	testutils.AssertEqual(t, a3Data.NoteUUID, "note-2-uuid", "a3 data note_uuid mismatch")
 }
 
-func TestMigration5(t *testing.T) {
+func TestLocalMigration5(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -642,7 +642,7 @@ func TestMigration5(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm5.run(tx)
+	err = lm5.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -690,7 +690,7 @@ func TestMigration5(t *testing.T) {
 	testutils.AssertEqual(t, a3Data.Public, false, "a3 data public mismatch")
 }
 
-func TestMigration6(t *testing.T) {
+func TestLocalMigration6(t *testing.T) {
 	// set up
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
@@ -723,7 +723,7 @@ func TestMigration6(t *testing.T) {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	err = lm6.run(tx)
+	err = lm6.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		t.Fatal(errors.Wrap(err, "failed to run"))
@@ -765,4 +765,8 @@ func TestMigration6(t *testing.T) {
 	testutils.AssertEqual(t, a3.Type, "remove_book", "a3 type mismatch")
 	testutils.AssertEqual(t, a3.Timestamp, int64(1537829463), "a3 timestamp mismatch")
 	testutils.AssertEqual(t, a3Data.BookUUID, b2UUID, "a3 data book_uuid mismatch")
+}
+
+func TestRemoteMigration1(t *testing.T) {
+
 }

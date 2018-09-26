@@ -81,7 +81,7 @@ func execute(ctx infra.DnoteCtx, m migration, schemaKey string) error {
 		return errors.Wrap(err, "beginning a transaction")
 	}
 
-	err = m.run(tx)
+	err = m.run(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrapf(err, "running migration '%s'", m.name)

@@ -49,10 +49,6 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 	return func(cmd *cobra.Command, args []string) error {
 		db := ctx.DB
 
-		if err := migrate.Run(ctx, migrate.RemoteSequence, migrate.RemoteMode); err != nil {
-			return errors.Wrap(err, "running remote migrations")
-		}
-
 		config, err := core.ReadConfig(ctx)
 		if err != nil {
 			return errors.Wrap(err, "reading the config")
@@ -60,6 +56,10 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 		if config.APIKey == "" {
 			log.Error("login required. please run `dnote login`\n")
 			return nil
+		}
+
+		if err := migrate.Run(ctx, migrate.RemoteSequence, migrate.RemoteMode); err != nil {
+			return errors.Wrap(err, "running remote migrations")
 		}
 
 		var bookmark int
