@@ -6,6 +6,7 @@ import (
 
 	"github.com/dnote/actions"
 	"github.com/dnote/cli/testutils"
+	"github.com/dnote/cli/utils"
 	"github.com/pkg/errors"
 )
 
@@ -14,14 +15,18 @@ func TestLogActionEditNote(t *testing.T) {
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
 
-	// Execute
 	db := ctx.DB
+
+	b1UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting css book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", b1UUID, "js")
+
+	// Execute
 	tx, err := db.Begin()
 	if err != nil {
 		panic(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	if err := LogActionEditNote(tx, "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "js", "updated content", 1536168581); err != nil {
+	if err := LogActionEditNote(tx, "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "updated content", 1536168581); err != nil {
 		t.Fatalf("Failed to perform %s", err.Error())
 	}
 
@@ -29,33 +34,24 @@ func TestLogActionEditNote(t *testing.T) {
 
 	// Test
 	var actionCount int
-	if err := db.QueryRow("SELECT count(*) FROM actions;").Scan(&actionCount); err != nil {
-		panic(errors.Wrap(err, "counting actions"))
-	}
+	testutils.MustScan(t, "counting actions", db.QueryRow("SELECT count(*) FROM actions"), &actionCount)
+
 	var action actions.Action
-	if err := db.QueryRow("SELECT uuid, schema, type, timestamp, data FROM actions").
-		Scan(&action.UUID, &action.Schema, &action.Type, &action.Timestamp, &action.Data); err != nil {
-		panic(errors.Wrap(err, "querying action"))
-	}
-	var actionData actions.EditNoteDataV2
+	testutils.MustScan(t, "finding action", db.QueryRow("SELECT uuid, schema, type, timestamp, data FROM actions"),
+		&action.UUID, &action.Schema, &action.Type, &action.Timestamp, &action.Data)
+
+	var actionData actions.EditNoteDataV3
 	if err := json.Unmarshal(action.Data, &actionData); err != nil {
 		panic(errors.Wrap(err, "unmarshalling action data"))
 	}
 
-	if actionCount != 1 {
-		t.Fatalf("action count mismatch. got %d", actionCount)
-	}
+	testutils.AssertEqualf(t, actionCount, 1, "action count mismatch")
 	testutils.AssertNotEqual(t, action.UUID, "", "action uuid mismatch")
-	testutils.AssertEqual(t, action.Schema, 2, "action schema mismatch")
+	testutils.AssertEqual(t, action.Schema, 3, "action schema mismatch")
 	testutils.AssertEqual(t, action.Type, actions.ActionEditNote, "action type mismatch")
 	testutils.AssertNotEqual(t, action.Timestamp, 0, "action timestamp mismatch")
 	testutils.AssertEqual(t, actionData.NoteUUID, "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "action data note_uuid mismatch")
-	testutils.AssertEqual(t, actionData.FromBook, "js", "action data from_book mismatch")
+	testutils.AssertEqual(t, actionData.BookUUID, (*string)(nil), "action data book_uuid mismatch")
+	testutils.AssertEqual(t, actionData.Public, (*bool)(nil), "action data public mismatch")
 	testutils.AssertEqual(t, *actionData.Content, "updated content", "action data content mismatch")
-	if actionData.ToBook != nil {
-		t.Errorf("action data to_book mismatch. Expected %+v. Got %+v", nil, actionData.ToBook)
-	}
-	if actionData.Public != nil {
-		t.Errorf("action data public mismatch. Expected %+v. Got %+v", nil, actionData.ToBook)
-	}
 }
