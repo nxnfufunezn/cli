@@ -336,7 +336,7 @@ func rm1UpdateAddNoteAction(tx *sql.Tx, actionUUID, actionData string, schema in
 	}
 
 	var bookLabel string
-	err = tx.QueryRow("SELECT label FROM books WHERE uuid = ?", actionUUID).Scan(&bookLabel)
+	err = tx.QueryRow("SELECT label FROM books WHERE uuid = ?", data.BookUUID).Scan(&bookLabel)
 	if err != nil {
 		return errors.Wrap(err, "finding book label")
 	}
@@ -356,44 +356,6 @@ func rm1UpdateAddNoteAction(tx *sql.Tx, actionUUID, actionData string, schema in
 	return nil
 }
 
-func rm1UpdateEditNoteAction(tx *sql.Tx, actionUUID, actionData string, schema int, uuidMap map[string]string) error {
-	if schema != 3 {
-		return errors.Errorf("unsupported schema '%d' for edit_note.", schema)
-	}
-
-	var data actions.EditNoteDataV3
-	err := json.Unmarshal([]byte(actionData), &data)
-	if err != nil {
-		return errors.Wrap(err, "unmarshalling action data")
-	}
-
-	if data.BookUUID == nil {
-		var bookLabel string
-		err := tx.QueryRow("SELECT label FROM books WHERE uuid = ?", actionUUID).Scan(&bookLabel)
-		if err != nil {
-			return errors.Wrap(err, "finding book label")
-		}
-		if err != nil {
-			return errors.Wrap(err, "finding book label")
-		}
-
-		bookUUID := uuidMap[bookLabel]
-		data.BookUUID = &bookUUID
-
-		b, err := json.Marshal(data)
-		if err != nil {
-			return errors.Wrap(err, "marshalling action data")
-		}
-
-		_, err = tx.Exec("UPDATE actions SET data = ? WHERE uuid = ?", string(b), actionUUID)
-		if err != nil {
-			return errors.Wrap(err, "updating action")
-		}
-	}
-
-	return nil
-}
-
 func rm1UpdateRemoveBookAction(tx *sql.Tx, actionUUID, actionData string, schema int, uuidMap map[string]string) error {
 	if schema != 2 {
 		return errors.Errorf("unsupported schema '%d' for remove_book", schema)
@@ -406,7 +368,7 @@ func rm1UpdateRemoveBookAction(tx *sql.Tx, actionUUID, actionData string, schema
 	}
 
 	var bookLabel string
-	err = tx.QueryRow("SELECT label FROM books WHERE uuid = ?", actionUUID).Scan(&bookLabel)
+	err = tx.QueryRow("SELECT label FROM books WHERE uuid = ?", data.BookUUID).Scan(&bookLabel)
 	if err != nil {
 		return errors.Wrap(err, "finding book label")
 	}
@@ -429,18 +391,18 @@ func rm1UpdateRemoveBookAction(tx *sql.Tx, actionUUID, actionData string, schema
 var rm1 = migration{
 	name: "sync-book-uuids-from-server",
 	run: func(ctx infra.DnoteCtx, tx *sql.Tx) error {
-		endpoint := fmt.Sprintf("%s/v1/books", ctx.APIEndpoint)
-		req, err := http.NewRequest("GET", endpoint, strings.NewReader(""))
-		if err != nil {
-			return errors.Wrap(err, "constructing http request")
-		}
-
 		config, err := core.ReadConfig(ctx)
 		if err != nil {
 			return errors.Wrap(err, "reading the config")
 		}
 		if config.APIKey == "" {
 			return errors.New("login required")
+		}
+
+		endpoint := fmt.Sprintf("%s/v1/books", ctx.APIEndpoint)
+		req, err := http.NewRequest("GET", endpoint, strings.NewReader(""))
+		if err != nil {
+			return errors.Wrap(err, "constructing http request")
 		}
 
 		req.Header.Set("Authorization", config.APIKey)
@@ -468,14 +430,8 @@ var rm1 = migration{
 		UUIDMap := map[string]string{}
 
 		for _, book := range resData {
-			// 1. Build a map from uuid to label
+			// Build a map from uuid to label
 			UUIDMap[book.Label] = book.UUID
-
-			// 2. update uuid in the books table
-			_, err := tx.Exec("UPDATE books SET uuid = ? WHERE label = ?", book.UUID, book.Label)
-			if err != nil {
-				return errors.Wrap(err, "updating book")
-			}
 		}
 
 		rows, err := tx.Query("SELECT uuid, schema, type, data FROM actions")
@@ -484,7 +440,7 @@ var rm1 = migration{
 		}
 		defer rows.Close()
 
-		// 3. transform actions
+		// transform actions
 		for rows.Next() {
 			var schema int
 			var actionUUID, actionType, actionData string
@@ -497,14 +453,20 @@ var rm1 = migration{
 			switch actionType {
 			case actions.ActionAddNote:
 				err = rm1UpdateAddNoteAction(tx, actionUUID, actionData, schema, UUIDMap)
-			case actions.ActionEditNote:
-				err = rm1UpdateEditNoteAction(tx, actionUUID, actionData, schema, UUIDMap)
 			case actions.ActionRemoveBook:
 				err = rm1UpdateRemoveBookAction(tx, actionUUID, actionData, schema, UUIDMap)
 			}
 
 			if err != nil {
 				return errors.Wrapf(err, "updatng action %s uuid %s", actionType, actionUUID)
+			}
+		}
+
+		for _, book := range resData {
+			// update uuid in the books table
+			_, err := tx.Exec("UPDATE books SET uuid = ? WHERE label = ?", book.UUID, book.Label)
+			if err != nil {
+				return errors.Wrapf(err, "updating book '%s'", book.Label)
 			}
 		}
 

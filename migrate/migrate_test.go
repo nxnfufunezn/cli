@@ -775,15 +775,24 @@ func TestRemoteMigration1(t *testing.T) {
 	ctx := testutils.InitEnv("../tmp", "../testutils/fixtures/schema.sql")
 	defer testutils.TeardownEnv(ctx)
 
+	JSBookUUID := utils.GenerateUUID()
+	CSSBookUUID := utils.GenerateUUID()
+	newJSBookUUID := "new-js-book-uuid"
+	newCSSBookUUID := "new-css-book-uuid"
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.String() == "/v1/books" {
 			res := []struct {
-				UUID  string `json:"id"`
+				UUID  string `json:"uuid"`
 				Label string `json:"label"`
 			}{
 				{
-					UUID:  "a",
-					Label: "b",
+					UUID:  newJSBookUUID,
+					Label: "js",
+				},
+				{
+					UUID:  newCSSBookUUID,
+					Label: "css",
 				},
 			}
 
@@ -794,8 +803,73 @@ func TestRemoteMigration1(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// execute
+	ctx.APIEndpoint = server.URL
+
+	confStr := fmt.Sprintf("apikey: mock_api_key")
+	testutils.WriteFile(ctx, []byte(confStr), "dnoterc")
+
 	db := ctx.DB
+
+	testutils.MustExec(t, "inserting js book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", JSBookUUID, "js")
+	testutils.MustExec(t, "inserting css book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", CSSBookUUID, "css")
+
+	data := testutils.MustMarshalJSON(t, actions.AddBookDataV2{BookName: "js", BookUUID: JSBookUUID})
+	a1UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a1UUID, 2, "add_book", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddBookDataV2{BookName: "css", BookUUID: CSSBookUUID})
+	a2UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a2UUID, 2, "add_book", string(data), 1537829463)
+
+	linuxBookUUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting linux book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", linuxBookUUID, "linux")
+	bashBookUUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting bash book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", bashBookUUID, "bash")
+
+	data = testutils.MustMarshalJSON(t, actions.AddBookDataV2{BookName: "linux", BookUUID: linuxBookUUID})
+	a3UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a3UUID, 2, "add_book", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddBookDataV2{BookName: "bash", BookUUID: bashBookUUID})
+	a4UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a4UUID, 2, "add_book", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddNoteDataV3{NoteUUID: "note-1-uuid", BookUUID: JSBookUUID, Content: "note-1", Public: false})
+	a5UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a5UUID, 3, "add_note", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddNoteDataV3{NoteUUID: "note-2-uuid", BookUUID: JSBookUUID, Content: "note-2", Public: false})
+	a6UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a6UUID, 3, "add_note", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddNoteDataV3{NoteUUID: "note-3-uuid", BookUUID: CSSBookUUID, Content: "note-3", Public: false})
+	a7UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a7UUID, 3, "add_note", string(data), 1537829463)
+
+	data = testutils.MustMarshalJSON(t, actions.AddNoteDataV3{NoteUUID: "note-4-uuid", BookUUID: linuxBookUUID, Content: "note-4", Public: false})
+	a8UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a8UUID, 3, "add_note", string(data), 1537829463)
+
+	c := "note-1-edited"
+	data = testutils.MustMarshalJSON(t, actions.EditNoteDataV3{NoteUUID: "note-1-uuid", Content: &c})
+	a9UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a9UUID, 3, "edit_note", string(data), 1537829463)
+
+	testutils.MustExec(t, "removing bash book", db, "DELETE FROM books where label = ?", "bash")
+	data = testutils.MustMarshalJSON(t, actions.RemoveBookDataV2{BookUUID: bashBookUUID})
+	a10UUID := utils.GenerateUUID()
+	testutils.MustExec(t, "inserting action", db,
+		"INSERT INTO actions (uuid, schema, type, data, timestamp) VALUES (?, ?, ?, ?, ?)", a10UUID, 2, "remove_book", string(data), 1537829463)
+
 	tx, err := db.Begin()
 	if err != nil {
 		t.Fatal(errors.Wrap(err, "beginning a transaction"))
@@ -808,4 +882,75 @@ func TestRemoteMigration1(t *testing.T) {
 	}
 
 	tx.Commit()
+
+	// test
+	var postJSBookUUID, postCSSBookUUID, postLinuxBookUUID string
+	testutils.MustScan(t, "getting js book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "js"), &postCSSBookUUID)
+	testutils.MustScan(t, "getting css book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "css"), &postCSSBookUUID)
+	testutils.MustScan(t, "getting linux book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "linux"), &postCSSBookUUID)
+
+	testutils.AssertEqual(t, postJSBookUUID, newJSBookUUID, "js book uuid was not updated correctly")
+	testutils.AssertEqual(t, postCSSBookUUID, newCSSBookUUID, "css book uuid was not updated correctly")
+	testutils.AssertEqual(t, postLinuxBookUUID, linuxBookUUID, "linux book uuid changed")
+
+	var a1, a2, a3, a4, a5, a6, a7, a8, a9, a10 actions.Action
+	testutils.MustScan(t, "getting action 1", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a1UUID),
+		&a1.Schema, &a1.Type, &a1.Data, &a1.Timestamp)
+	testutils.MustScan(t, "getting action 2", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a2UUID),
+		&a2.Schema, &a2.Type, &a2.Data, &a2.Timestamp)
+	testutils.MustScan(t, "getting action 3", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a3UUID),
+		&a3.Schema, &a3.Type, &a3.Data, &a3.Timestamp)
+	testutils.MustScan(t, "getting action 4", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a4UUID),
+		&a4.Schema, &a4.Type, &a4.Data, &a4.Timestamp)
+	testutils.MustScan(t, "getting action 5", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a5UUID),
+		&a5.Schema, &a5.Type, &a5.Data, &a5.Timestamp)
+	testutils.MustScan(t, "getting action 6", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a6UUID),
+		&a6.Schema, &a6.Type, &a6.Data, &a6.Timestamp)
+	testutils.MustScan(t, "getting action 7", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a7UUID),
+		&a7.Schema, &a7.Type, &a7.Data, &a7.Timestamp)
+	testutils.MustScan(t, "getting action 8", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a8UUID),
+		&a8.Schema, &a8.Type, &a8.Data, &a8.Timestamp)
+	testutils.MustScan(t, "getting action 9", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a9UUID),
+		&a9.Schema, &a9.Type, &a9.Data, &a9.Timestamp)
+	testutils.MustScan(t, "getting action 10", db.QueryRow("SELECT schema, type, data, timestamp FROM actions WHERE uuid = ?", a10UUID),
+		&a10.Schema, &a10.Type, &a10.Data, &a10.Timestamp)
+
+	var a1Data, a2Data, a3Data, a4Data actions.AddBookDataV2
+	var a5Data, a6Data, a7Data, a8Data actions.AddBookDataV2
+	var a9Data actions.EditNoteDataV3
+	var a10Data actions.RemoveBookDataV2
+	testutils.MustUnmarshalJSON(t, a1.Data, &a1Data)
+	testutils.MustUnmarshalJSON(t, a2.Data, &a2Data)
+	testutils.MustUnmarshalJSON(t, a3.Data, &a3Data)
+	testutils.MustUnmarshalJSON(t, a4.Data, &a4Data)
+	testutils.MustUnmarshalJSON(t, a5.Data, &a5Data)
+	testutils.MustUnmarshalJSON(t, a6.Data, &a6Data)
+	testutils.MustUnmarshalJSON(t, a7.Data, &a7Data)
+	testutils.MustUnmarshalJSON(t, a8.Data, &a8Data)
+	testutils.MustUnmarshalJSON(t, a9.Data, &a9Data)
+	testutils.MustUnmarshalJSON(t, a10.Data, &a10Data)
+
+	testutils.AssertEqual(t, a1.Schema, 2, "a1 schema mismatch")
+	testutils.AssertEqual(t, a1.Type, "add_book", "a1 type mismatch")
+	testutils.AssertEqual(t, a1.Timestamp, int64(1537829463), "a1 timestamp mismatch")
+	testutils.AssertEqual(t, a1Data.BookName, "js", "a1 data book_name mismatch")
+	testutils.AssertEqual(t, a1Data.BookUUID, newJSBookUUID, "a1 data book_uuid mismatch")
+
+	testutils.AssertEqual(t, a2.Schema, 2, "a2 schema mismatch")
+	testutils.AssertEqual(t, a2.Type, "add_book", "a2 type mismatch")
+	testutils.AssertEqual(t, a2.Timestamp, int64(1537829463), "a2 timestamp mismatch")
+	testutils.AssertEqual(t, a1Data.BookName, "css", "a2 data book_name mismatch")
+	testutils.AssertEqual(t, a1Data.BookUUID, newCSSBookUUID, "a2 data book_uuid mismatch")
+
+	testutils.AssertEqual(t, a3.Schema, 2, "a3 schema mismatch")
+	testutils.AssertEqual(t, a3.Type, "add_book", "a3 type mismatch")
+	testutils.AssertEqual(t, a3.Timestamp, int64(1537829463), "a3 timestamp mismatch")
+	testutils.AssertEqual(t, a1Data.BookName, "linux", "a3 data book_name mismatch")
+	testutils.AssertEqual(t, a1Data.BookUUID, linuxBookUUID, "a3 data book_uuid mismatch")
+
+	testutils.AssertEqual(t, a4.Schema, 2, "a4 schema mismatch")
+	testutils.AssertEqual(t, a4.Type, "add_book", "a4 type mismatch")
+	testutils.AssertEqual(t, a4.Timestamp, int64(1537829463), "a4 timestamp mismatch")
+	testutils.AssertEqual(t, a1Data.BookName, "bash", "a4 data book_name mismatch")
+	testutils.AssertEqual(t, a1Data.BookUUID, bashBookUUID, "a4 data book_uuid mismatch")
 }
