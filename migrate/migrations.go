@@ -295,6 +295,7 @@ var lm6 = migration{
 			}
 
 			newData := actions.RemoveBookDataV2{
+				BookName: oldData.BookName,
 				BookUUID: bookUUID,
 			}
 
@@ -341,7 +342,12 @@ func rm1UpdateAddNoteAction(tx *sql.Tx, actionUUID, actionData string, schema in
 		return errors.Wrap(err, "finding book label")
 	}
 
-	data.BookUUID = uuidMap[bookLabel]
+	bookUUID, ok := uuidMap[bookLabel]
+	fmt.Println("####", bookLabel, bookUUID)
+	if !ok {
+		return nil
+	}
+	data.BookUUID = bookUUID
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -367,12 +373,10 @@ func rm1UpdateRemoveBookAction(tx *sql.Tx, actionUUID, actionData string, schema
 		return errors.Wrap(err, "unmarshalling action data")
 	}
 
-	var bookLabel string
-	err = tx.QueryRow("SELECT label FROM books WHERE uuid = ?", data.BookUUID).Scan(&bookLabel)
-	if err != nil {
-		return errors.Wrap(err, "finding book label")
+	bookUUID, ok := uuidMap[data.BookName]
+	if !ok {
+		return nil
 	}
-	bookUUID := uuidMap[bookLabel]
 	data.BookUUID = bookUUID
 
 	b, err := json.Marshal(data)
@@ -464,6 +468,7 @@ var rm1 = migration{
 
 		for _, book := range resData {
 			// update uuid in the books table
+			fmt.Println("Updating", book.UUID, book.Label)
 			_, err := tx.Exec("UPDATE books SET uuid = ? WHERE label = ?", book.UUID, book.Label)
 			if err != nil {
 				return errors.Wrapf(err, "updating book '%s'", book.Label)

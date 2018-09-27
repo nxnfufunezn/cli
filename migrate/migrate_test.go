@@ -813,6 +813,7 @@ func TestRemoteMigration1(t *testing.T) {
 	testutils.MustExec(t, "inserting js book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", JSBookUUID, "js")
 	testutils.MustExec(t, "inserting css book", db, "INSERT INTO books (uuid, label) VALUES (?, ?)", CSSBookUUID, "css")
 
+	// TODO: add_book doesn't need to be migrated. simplify this
 	data := testutils.MustMarshalJSON(t, actions.AddBookDataV2{BookName: "js", BookUUID: JSBookUUID})
 	a1UUID := utils.GenerateUUID()
 	testutils.MustExec(t, "inserting action", db,
@@ -885,9 +886,9 @@ func TestRemoteMigration1(t *testing.T) {
 
 	// test
 	var postJSBookUUID, postCSSBookUUID, postLinuxBookUUID string
-	testutils.MustScan(t, "getting js book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "js"), &postCSSBookUUID)
+	testutils.MustScan(t, "getting js book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "js"), &postJSBookUUID)
 	testutils.MustScan(t, "getting css book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "css"), &postCSSBookUUID)
-	testutils.MustScan(t, "getting linux book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "linux"), &postCSSBookUUID)
+	testutils.MustScan(t, "getting linux book uuid", db.QueryRow("SELECT uuid FROM books WHERE label = ?", "linux"), &postLinuxBookUUID)
 
 	testutils.AssertEqual(t, postJSBookUUID, newJSBookUUID, "js book uuid was not updated correctly")
 	testutils.AssertEqual(t, postCSSBookUUID, newCSSBookUUID, "css book uuid was not updated correctly")
@@ -939,18 +940,18 @@ func TestRemoteMigration1(t *testing.T) {
 	testutils.AssertEqual(t, a2.Schema, 2, "a2 schema mismatch")
 	testutils.AssertEqual(t, a2.Type, "add_book", "a2 type mismatch")
 	testutils.AssertEqual(t, a2.Timestamp, int64(1537829463), "a2 timestamp mismatch")
-	testutils.AssertEqual(t, a1Data.BookName, "css", "a2 data book_name mismatch")
-	testutils.AssertEqual(t, a1Data.BookUUID, newCSSBookUUID, "a2 data book_uuid mismatch")
+	testutils.AssertEqual(t, a2Data.BookName, "css", "a2 data book_name mismatch")
+	testutils.AssertEqual(t, a2Data.BookUUID, newCSSBookUUID, "a2 data book_uuid mismatch")
 
 	testutils.AssertEqual(t, a3.Schema, 2, "a3 schema mismatch")
 	testutils.AssertEqual(t, a3.Type, "add_book", "a3 type mismatch")
 	testutils.AssertEqual(t, a3.Timestamp, int64(1537829463), "a3 timestamp mismatch")
-	testutils.AssertEqual(t, a1Data.BookName, "linux", "a3 data book_name mismatch")
-	testutils.AssertEqual(t, a1Data.BookUUID, linuxBookUUID, "a3 data book_uuid mismatch")
+	testutils.AssertEqual(t, a3Data.BookName, "linux", "a3 data book_name mismatch")
+	testutils.AssertEqual(t, a3Data.BookUUID, linuxBookUUID, "a3 data book_uuid mismatch")
 
 	testutils.AssertEqual(t, a4.Schema, 2, "a4 schema mismatch")
 	testutils.AssertEqual(t, a4.Type, "add_book", "a4 type mismatch")
 	testutils.AssertEqual(t, a4.Timestamp, int64(1537829463), "a4 timestamp mismatch")
-	testutils.AssertEqual(t, a1Data.BookName, "bash", "a4 data book_name mismatch")
-	testutils.AssertEqual(t, a1Data.BookUUID, bashBookUUID, "a4 data book_uuid mismatch")
+	testutils.AssertEqual(t, a4Data.BookName, "bash", "a4 data book_name mismatch")
+	testutils.AssertEqual(t, a4Data.BookUUID, bashBookUUID, "a4 data book_uuid mismatch")
 }
