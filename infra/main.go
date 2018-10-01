@@ -128,7 +128,7 @@ func InitDB(ctx DnoteCtx) error {
 			uuid text NOT NULL,
 			book_uuid text NOT NULL,
 			content text NOT NULL,
-			added_on integer NOT NULL,
+			added_on datetime_text NOT NULL,
 			edited_on integer DEFAULT 0,
 			public bool DEFAULT false
 		)`)

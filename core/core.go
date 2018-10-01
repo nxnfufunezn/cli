@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/dnote/cli/infra"
 	"github.com/dnote/cli/utils"
@@ -149,15 +150,16 @@ func WriteConfig(ctx infra.DnoteCtx, config infra.Config) error {
 }
 
 // LogAction logs action and updates the last_action
-func LogAction(tx *sql.Tx, schema int, actionType, data string, timestamp int64) error {
+func LogAction(tx *sql.Tx, schema int, actionType, data string, timestamp time.Time) error {
 	uuid := uuid.NewV4().String()
 
 	_, err := tx.Exec(`INSERT INTO actions (uuid, schema, type, data, timestamp)
-	VALUES (?, ?, ?, ?, ?)`, uuid, schema, actionType, data, timestamp)
+	VALUES (?, ?, ?, ?, ?)`, uuid, schema, actionType, data, utils.FormatTS(timestamp))
 	if err != nil {
 		return errors.Wrap(err, "inserting an action")
 	}
 
+	// TODO: is last_action used? if not, remove. if used, convert to iso string?
 	_, err = tx.Exec("UPDATE system SET value = ? WHERE key = ?", timestamp, "last_action")
 	if err != nil {
 		return errors.Wrap(err, "updating last_action")

@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/dnote/actions"
 	"github.com/dnote/cli/testutils"
@@ -21,7 +22,8 @@ func TestLogActionEditNote(t *testing.T) {
 		panic(errors.Wrap(err, "beginning a transaction"))
 	}
 
-	if err := LogActionEditNote(tx, "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "js", "updated content", 1536168581); err != nil {
+	ts := time.Unix(1536168581, 0)
+	if err := LogActionEditNote(tx, "f0d0fbb7-31ff-45ae-9f0f-4e429c0c797f", "js", "updated content", ts); err != nil {
 		t.Fatalf("Failed to perform %s", err.Error())
 	}
 

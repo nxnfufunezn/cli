@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/dnote/actions"
+	"github.com/dnote/cli/utils"
 	"github.com/pkg/errors"
 )
 
 // LogActionAddNote logs an action for adding a note
-func LogActionAddNote(tx *sql.Tx, noteUUID, bookName, content string, timestamp int64) error {
+func LogActionAddNote(tx *sql.Tx, noteUUID, bookName, content string, timestamp time.Time) error {
 	b, err := json.Marshal(actions.AddNoteDataV2{
 		NoteUUID: noteUUID,
 		BookName: bookName,
@@ -39,7 +40,7 @@ func LogActionRemoveNote(tx *sql.Tx, noteUUID, bookName string) error {
 		return errors.Wrap(err, "marshalling data into JSON")
 	}
 
-	ts := time.Now().Unix()
+	ts := utils.Now()
 	if err := LogAction(tx, 1, actions.ActionRemoveNote, string(b), ts); err != nil {
 		return errors.Wrapf(err, "logging action")
 	}
@@ -48,7 +49,7 @@ func LogActionRemoveNote(tx *sql.Tx, noteUUID, bookName string) error {
 }
 
 // LogActionEditNote logs an action for editing a note
-func LogActionEditNote(tx *sql.Tx, noteUUID, bookName, content string, ts int64) error {
+func LogActionEditNote(tx *sql.Tx, noteUUID, bookName, content string, ts time.Time) error {
 	b, err := json.Marshal(actions.EditNoteDataV3{
 		NoteUUID: noteUUID,
 		Content:  &content,
@@ -75,7 +76,7 @@ func LogActionAddBook(tx *sql.Tx, name string) error {
 		return errors.Wrap(err, "marshalling data into JSON")
 	}
 
-	ts := time.Now().Unix()
+	ts := utils.Now()
 	if err := LogAction(tx, 1, actions.ActionAddBook, string(b), ts); err != nil {
 		return errors.Wrapf(err, "logging action")
 	}
@@ -90,7 +91,7 @@ func LogActionRemoveBook(tx *sql.Tx, name string) error {
 		return errors.Wrap(err, "marshalling data into JSON")
 	}
 
-	ts := time.Now().Unix()
+	ts := utils.Now()
 	if err := LogAction(tx, 1, actions.ActionRemoveBook, string(b), ts); err != nil {
 		return errors.Wrapf(err, "logging action")
 	}

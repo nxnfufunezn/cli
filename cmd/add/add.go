@@ -63,7 +63,7 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 			return errors.New("Empty content")
 		}
 
-		ts := time.Now().Unix()
+		ts := utils.Now()
 		err := writeNote(ctx, bookName, content, ts)
 		if err != nil {
 			return errors.Wrap(err, "Failed to write note")
@@ -82,7 +82,7 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 	}
 }
 
-func writeNote(ctx infra.DnoteCtx, bookLabel string, content string, ts int64) error {
+func writeNote(ctx infra.DnoteCtx, bookLabel string, content string, ts time.Time) error {
 	tx, err := ctx.DB.Begin()
 	if err != nil {
 		return errors.Wrap(err, "beginning a transaction")
@@ -109,7 +109,7 @@ func writeNote(ctx infra.DnoteCtx, bookLabel string, content string, ts int64) e
 
 	noteUUID := utils.GenerateUUID()
 	_, err = tx.Exec(`INSERT INTO notes (uuid, book_uuid, content, added_on, public)
-		VALUES (?, ?, ?, ?, ?);`, noteUUID, bookUUID, content, ts, false)
+		VALUES (?, ?, ?, ?, ?);`, noteUUID, bookUUID, content, utils.FormatTS(ts), false)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrap(err, "creating the note")

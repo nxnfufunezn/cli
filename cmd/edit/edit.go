@@ -3,11 +3,11 @@ package edit
 import (
 	"database/sql"
 	"io/ioutil"
-	"time"
 
 	"github.com/dnote/cli/core"
 	"github.com/dnote/cli/infra"
 	"github.com/dnote/cli/log"
+	"github.com/dnote/cli/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -83,16 +83,15 @@ func newRun(ctx infra.DnoteCtx) core.RunEFunc {
 			return errors.New("Nothing changed")
 		}
 
-		ts := time.Now().Unix()
+		ts := utils.Now()
 		newContent = core.SanitizeContent(newContent)
 
 		tx, err := db.Begin()
 		if err != nil {
 			return errors.Wrap(err, "beginning a transaction")
 		}
-		_, err = tx.Exec(`UPDATE notes
-			SET content = ?, edited_on = ?
-			WHERE id = ? AND book_uuid = ?`, newContent, ts, noteID, bookUUID)
+		_, err = tx.Exec(`UPDATE notes SET content = ?, edited_on = ? WHERE id = ? AND book_uuid = ?`,
+			newContent, utils.FormatTS(ts), noteID, bookUUID)
 		if err != nil {
 			tx.Rollback()
 			return errors.Wrap(err, "updating the note")

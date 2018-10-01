@@ -4,7 +4,7 @@ CREATE TABLE notes
 			uuid text NOT NULL,
 			book_uuid text NOT NULL,
 			content text NOT NULL,
-			added_on integer NOT NULL,
+			added_on datetime_text NOT NULL,
 			edited_on integer DEFAULT 0,
 			public bool DEFAULT false
 		);
@@ -27,6 +27,7 @@ CREATE TABLE system
 			value text NOT NULL
 		);
 CREATE UNIQUE INDEX idx_books_label ON books(label);
-CREATE INDEX idx_books_uuid ON books(uuid);
-CREATE INDEX idx_notes_id ON notes(id);
+CREATE UNIQUE INDEX idx_notes_uuid ON notes(uuid);
+CREATE UNIQUE INDEX idx_books_uuid ON books(uuid);
+CREATE UNIQUE INDEX idx_notes_id ON notes(id);
 CREATE INDEX idx_notes_book_uuid ON notes(book_uuid);

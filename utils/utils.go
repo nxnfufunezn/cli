@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/dnote/cli/log"
 	"github.com/pkg/errors"
@@ -141,4 +142,14 @@ func CopyDir(src, dest string) error {
 	}
 
 	return nil
+}
+
+// FormatTS formats the timestmap to ISO-8601 string
+func FormatTS(t time.Time) string {
+	return t.Format(time.RFC3339)
+}
+
+// Now returns the current UTC time
+func Now() time.Time {
+	return time.Now().UTC()
 }
